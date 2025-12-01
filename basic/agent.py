@@ -1,12 +1,22 @@
 # google_search_agent/agent.py  ← FINAL, FULLY WORKING VERSION (Nov 2025)
 
 import logging
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, Optional,Any
 from typing_extensions import override
+
 
 from google.adk.agents import LlmAgent, BaseAgent, LoopAgent, SequentialAgent
 from google.adk.agents.invocation_context import InvocationContext
-from google.adk.events import Event
+# google_search_agent/agent.py  ← FINAL, FULLY WORKING VERSION (Nov 2025)
+
+import logging
+from typing import AsyncGenerator, Optional
+from typing_extensions import override
+
+
+from google.adk.agents import LlmAgent, BaseAgent, LoopAgent, SequentialAgent
+from google.adk.agents.invocation_context import InvocationContext
+from google.adk.events import Event,EventActions
 from google.genai import types
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.sessions import DatabaseSessionService, Session
@@ -24,7 +34,6 @@ CRISIS_KEYWORDS = [
     "मर जाना चाहता हूँ", "आत्महत्या", "नहीं जीना चाहता", "खुदकुशी",
     "quiero morir", "me quiero suicidar", "sin esperanza",
     "أريد أن أموت", "انتحار", "يأس"]
-
 def CrisisDetectionTool(text: str) -> bool:
     return any(kw.lower() in text.lower() for kw in CRISIS_KEYWORDS)
 
@@ -194,16 +203,16 @@ class EchoSupervisorAgent(BaseAgent):
     @override
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[types.Content, None]:
         logger.info("[Supervisor] New message received")
+        state = ctx.session.state
+        if not state:
+        # === MEMORY INITIALIZATION ===
+            state.setdefault("past_moods", [])
+            state.setdefault("message_count", 0)
+            state.setdefault("crisis_flag", False)
+            state.setdefault("user_name", None)
+        state["message_count"] += 1
 
-        # Initialize memory
-        ctx.session.state.setdefault("past_moods", [])
-        ctx.session.state.setdefault("crisis_flag", False)
-        ctx.session.state.setdefault("message_count", 0)
-        ctx.session.state["message_count"] += 1
-
-        # =====================================================================
-        # 2. RUN CRISIS + EMPATHY + MOOD IN PARALLEL (Fire-and-forget style)
-        # =====================================================================
+        # === RUN CRISIS + EMPATHY + MOOD IN PARALLEL ===
         crisis_task = self.crisis_detector.run_async(ctx)
         empathy_task = self.empathy_agent.run_async(ctx)
         mood_task = self.mood_analyzer.run_async(ctx)
@@ -212,7 +221,7 @@ class EchoSupervisorAgent(BaseAgent):
         empathy_response = None
         mood_value = None
 
-        # Collect results as they come in
+        # Collect results
         async for event in crisis_task:
             if event.content:
                 crisis_response = event.content.parts[0].text if event.content.parts else ""
@@ -220,70 +229,58 @@ class EchoSupervisorAgent(BaseAgent):
             if event.content:
                 empathy_response = event.content
         async for event in mood_task:
-            if "user_mood" in ctx.session.state:
-                mood_value = ctx.session.state["user_mood"]
+            raw_text = event.content.parts[0].text.strip()
+            state["user_mood"] = int(raw_text)
+            state["past_moods"].append(int(raw_text))
+            if len(state["past_moods"]) > 100:
+                state["past_moods"] = state["past_moods"][-100:]
+            mood_value = int(raw_text)
+            print("USER MOOD+++++",mood_value)
 
-        # =====================================================================
-        # 3. CRISIS OVERRIDE — HIGHEST PRIORITY
-        # =====================================================================
-        if ctx.session.state.get("crisis_flag"):
-            logger.warning("[Supervisor] CRISIS DETECTED → Blocking all other responses")
-            if crisis_response:
-                yield Event(author="Echo", content=crisis_response, partial=False)
-            return
+        # === CRISIS OVERRIDE ===
+        if state.get("crisis_flag") or crisis_response:
+            logger.warning("[CRISIS] Triggered")
+            state["crisis_flag"] = True
+            crisis_event = Event(
+                author="CrisisDetector",
+                actions=EventActions(state_delta=state),
+                content=types.Content(parts=[types.Part(text=crisis_response or "I'm really worried about you right now. Your safety matters so much. India: 9152987820")]),
+                partial=False
+            )
+            yield crisis_event
+           
 
-        # =====================================================================
-        # 4. LOW MOOD → ACTIVATE COPING STRATEGIST
-        # =====================================================================
+        # === LOW MOOD → EMPATHY + COPING ===
         if mood_value is not None and mood_value < 6:
-            logger.info(f"[Supervisor] Low mood ({mood_value}/10) → Empathy + Coping")
-
-            # 1. Send empathy first (warm validation)
+            logger.info(f"[Echo] Low mood ({mood_value}/10)")
             if empathy_response:
-                yield Event(author="Echo", content=empathy_response, partial=False)
-
-            # 2. Then send one gentle coping suggestion
-            async for event in self.coping_researcher.run_async(ctx):
+                yield Event(author="EmpathyAgent",
+                actions=EventActions(state_delta=state),
+                content=empathy_response, partial=False)
+            async for event in self.coping_loop.run_async(ctx):
                 if event.content:
-                    yield Event(author="Echo", content=event.content, partial=False)
-            return
+                    yield Event(author="CopingAgent",
+                    actions=EventActions(state_delta=state),
+                    content=event.content, partial=False)
+        else:
+            # Normal mood → empathy only
+            if empathy_response:
+                yield Event(author="EmpathyAgent",
+                actions=EventActions(state_delta=state),
+                content=empathy_response, partial=False)
 
-        # =====================================================================
-        # 5. WEEKLY REPORT (Every 7 messages)
-        # =====================================================================
-        if ctx.session.state["message_count"] % 7 == 0:
-            logger.info("[Supervisor] Weekly insights time")
-            async for event in self.weekly_reporter.run_async(ctx):
+        # === WEEKLY REPORT ===
+        if state["message_count"] % 7 == 0:
+            logger.info("[Echo] Weekly summary time")
+            async for event in self.background.run_async(ctx):
                 if event.content:
-                    yield Event(author="Echo", content=event.content, partial=False)
+                    yield Event(author="background",actions=EventActions(state_delta=state), content=event.content, partial=False)
 
-        # =====================================================================
-        # 6. DEFAULT: EMPATHY RESPONSE (The warm voice user hears 95% of time)
-        # =====================================================================
-        if empathy_response:
-            yield Event(author="Echo", content=empathy_response, partial=False)
-
-        # Save mood for long-term tracking
-        if mood_value is not None:
-            ctx.session.state["past_moods"].append(mood_value)
-            if len(ctx.session.state["past_moods"]) > 100:
-                ctx.session.state["past_moods"] = ctx.session.state["past_moods"][-100:]
-
-        logger.info("[Supervisor] Turn complete")
-        session_id=f"echo_{user_id}",  
-        state={
-            "past_moods": [],
-            "favorite_coping": "deep breathing",
-            "crisis_flag": False,
-            "user_mood": None,
-            "detected_lang": "en"
-        }
-    )
-    print(f"Echo session created: {session.id}")
-    print(f"Initial state: {session.state}")
-    return session
-
-# === EXPORT FOR main.py ===
-    # Keep for backward compatibility
-echo_runner = runner              # This is what you actually use
-echo_session_service = session_service
+        logger.info(f"[Echo] Turn complete | Mood: {mood_value} | Msg#: {state['message_count']} | Name: {state.get('user_name', 'None')}")
+root_agent = EchoSupervisorAgent()  
+session_service = DatabaseSessionService(db_url="sqlite:///sessions.db")
+runner = Runner(
+    agent=root_agent,
+    app_name="echo_app",
+    session_service=session_service
+)
