@@ -63,12 +63,6 @@ adk web --session_service_uri "sqlite:///sessions.db" --log_level DEBUG
 
 Then open your browser to the URL shown (typically `http://localhost:8000`)
 
-
-
-## Project Structure
-
-```
-
 ## How It Works
 
 ### Agent Architecture
