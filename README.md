@@ -1,198 +1,274 @@
-# Echo - AI Mental Health Companion 🌟
+# Echo - AI Mental Health Companion 🌿
 
-A compassionate, multilingual AI companion built with Google ADK that provides emotional support, mood tracking, and personalized coping strategies.
+Echo is a compassionate, non-clinical mental health companion built with Google's Agent Development Kit (ADK). It uses a multi-agent architecture to provide empathetic support, mood tracking, crisis detection, and personalized coping strategies.
 
-## Features
+## 🎯 Overview
 
-### 🤝 Empathetic Conversations
-- Deep emotional validation in **English, Hindi, and Hinglish**
-- Non-judgmental, warm responses that mirror user's language
-- Personalized presence lines that create a safe space
+Echo is designed to be a safe, supportive AI companion that:
+- Listens with empathy and validates emotions
+- Tracks mood patterns over time
+- Detects crisis situations and provides emergency resources
+- Generates evidence-based coping strategies from HelpGuide.org
+- Provides weekly progress reports
 
-### 📊 Mood Tracking
-- Automatic mood analysis (0-10 scale)
-- Historical mood tracking across sessions
-- Progress visualization over time
+**⚠️ Important Disclaimer**: Echo is NOT a replacement for professional mental health care. It's an AI companion designed to provide support and resources, not clinical treatment.
 
-### 🆘 Crisis Detection
-- Real-time monitoring for signs of distress
-- Immediate safety resources and hotline information
-- Multilingual crisis support (India: 9152987820, USA: 988)
+## 🏗️ Architecture
 
-### 💡 Personalized Coping Strategies
-- Evidence-based techniques suggested when mood is low
-- Gentle, invitation-based approach (never prescriptive)
-- Strategies include: breathing exercises, grounding techniques, self-soothing methods
+Echo uses a sophisticated multi-agent system with the following components:
 
-### 📈 Weekly Progress Reports
-- Encouraging summaries every 7 messages
-- Highlights growth and resilience
-- Positive framing of emotional journey
+### Root Agent (Orchestrator)
+The supervisor agent that routes user messages to appropriate specialist agents based on:
+- Crisis detection keywords
+- User mood levels
+- Explicit coping requests
+- Weekly report requests
+- General conversation needs
 
-### 💾 Session Persistence
-- SQLite database for reliable data storage
-- Conversation history preserved across sessions
-- User preferences and mood history maintained
+### Specialist Agents
 
-## Quick Start
+#### 1. **Empathy Agent** (`empathy_agent.py`)
+- Primary conversational interface
+- Uses reflective listening and emotional validation
+- Provides warm, compassionate responses
+- Includes multilingual crisis keyword detection
+
+#### 2. **Mood Analyzer** (`mood_analyzer.py`)
+- Analyzes user messages to determine mood on a 0-10 scale
+- Runs periodically to track emotional trends
+- Stores mood data for weekly reports
+
+#### 3. **Crisis Detector** (`crisis_detector.py`)
+- Monitors for suicidal thoughts, self-harm, or severe distress
+- Provides immediate safety resources and hotline numbers
+- Supports multiple countries (India: 9152987820, USA: 988, Spain: 024)
+
+#### 4. **Weekly Reporter** (`weekly_reporter.py`)
+- Generates compassionate weekly summaries
+- Highlights emotional growth and patterns
+- Uses stored mood data to show progress
+
+#### 5. **Coping Strategy System** (Multi-agent loop)
+A sophisticated iterative refinement system consisting of:
+
+- **Strategy Generator** (`strategy_generator.py`)
+  - Searches HelpGuide.org for evidence-based techniques
+  - Generates personalized coping strategies (100-200 words)
+  - Uses Google Search to fetch live content
+
+- **Quality Checker** (`quality_checker.py`)
+  - Validates strategies against 7 quality criteria
+  - Ensures evidence-based, personalized, safe content
+  - Provides structured feedback for refinement
+
+- **Strategy Refiner** (`strategy_refiner.py`)
+  - Improves strategies based on quality feedback
+  - Can perform additional searches if needed
+  - Approves and exits loop when strategy is perfect
+
+- **Coping Loop** (LoopAgent)
+  - Iterates between Quality Checker and Strategy Refiner
+  - Maximum 5 iterations to ensure quality
+  - Escalates when strategy is approved
+
+## 📁 Project Structure
+
+```
+capstone_project/
+├── Echo/
+│   ├── __init__.py
+│   ├── agent.py              # Root orchestrator agent
+│   ├── utils.py              # Shared constants and utilities
+│   └── subagents/
+│       ├── empathy_agent.py
+│       ├── mood_analyzer.py
+│       ├── crisis_detector.py
+│       ├── weekly_reporter.py
+│       ├── strategy_generator.py
+│       ├── quality_checker.py
+│       └── strategy_refiner.py
+├── main.py
+├── pyproject.toml
+├── uv.lock
+├── .env
+├── .gitignore
+└── README.md
+```
+
+## 🚀 Getting Started
 
 ### Prerequisites
-```bash
-python 3.11+
-pip install google-adk
-```
+
+- Python 3.11 or higher
+- Google ADK 1.11.0
+- Google API credentials
 
 ### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd capstone_project
+   ```
+
+2. **Set up virtual environment**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install google-adk==1.11.0
+   ```
+   
+   Or using `uv`:
+   ```bash
+   uv sync
+   ```
+
+4. **Configure environment variables**
+   Create a `.env` file in the project root:
+   ```
+   GOOGLE_API_KEY=your_api_key_here
+   ```
+
+### Running Echo
+
+#### Using ADK Web Interface
 ```bash
-# Clone or navigate to project directory
-cd capstone_project
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment variables
-# Create .env file with your GOOGLE_API_KEY
+adk web Echo.agent:root_agent
 ```
 
-### Running the Application
-
-#### Web Interface (Recommended)
+#### Using ADK CLI
 ```bash
-adk web --session_service_uri "sqlite:///sessions.db" --log_level DEBUG
+adk run Echo.agent:root_agent
 ```
 
-Then open your browser to the URL shown (typically `http://localhost:8000`)
+## 🔧 Configuration
 
-
-
-## Project Structure
-
+### Model Configuration
+The default model is `gemini-2.5-flash-lite`, configured in `Echo/utils.py`:
+```python
+GEMINI_MODEL = "gemini-2.5-flash-lite"
 ```
 
-## How It Works
+### State Keys
+Echo uses the following state keys for inter-agent communication:
+- `user_context` - User's current context and history
+- `coping_strategy` - Generated coping strategy
+- `feedback` - Quality checker feedback
+- `user_mood` - Current mood score (0-10)
+- `crisis_response` - Crisis detection output
+- `empathy_response` - Empathy agent output
+- `weekly_report` - Weekly summary output
 
-### Agent Architecture
+## 🔄 Agent Routing Logic
 
-**EchoSupervisorAgent** orchestrates multiple specialized sub-agents:
+The root agent follows this priority order:
 
-1. **Crisis Detector** - Scans for safety concerns
-2. **Empathy Agent** - Generates warm, validating responses
-3. **Mood Analyzer** - Evaluates emotional state (0-10)
-4. **Coping Researcher** - Suggests appropriate coping strategies
-5. **Weekly Reporter** - Creates progress summaries
+1. **Crisis Override** (Highest Priority)
+   - Detects suicidal intent, self-harm keywords
+   - Routes to `crisis_detector` immediately
 
-### Conversation Flow
+2. **Weekly Report Request**
+   - User asks for progress/summary
+   - 7+ days since last report
+   - Routes to `weekly_reporter`
 
-```
-User Message
-    ↓
-[Crisis Detection] → If detected: Safety resources
-    ↓
-[Mood Analysis] → Score 0-10
-    ↓
-[Empathy Response] → Always provided
-    ↓
-[Coping Strategy] → If mood < 6
-    ↓
-[Weekly Report] → Every 7 messages
-    ↓
-State Saved to Database
-```
+3. **Coping Request**
+   - User explicitly asks for help
+   - Mood ≤ 4.0 for 2+ days
+   - Routes to `root_coping_agent` (strategy system)
 
-## Database Schema
+4. **Background Mood Analysis**
+   - Runs every 3-5 messages
+   - Routes to `mood_analyzer`
 
-**sessions.db** contains:
-- `sessions` - User sessions with state (mood history, message count, user name)
-- `events` - Conversation history with timestamps
-- `app_states` - Application-level state
-- `user_states` - User-specific preferences
+5. **Default Conversation**
+   - Normal venting, reflections
+   - Routes to `empathy_agent`
 
-## Configuration
+## 🛠️ Development
 
-### Environment Variables
-Create a `.env` file:
-```env
-GOOGLE_API_KEY=your_api_key_here
-```
+### Adding New Agents
 
-### Customization
-Edit `basic/agent.py` to customize:
-- Crisis keywords (line 32-36)
-- Empathy instruction templates (line 40-100)
-- Coping strategy suggestions (line 104-115)
-- Model selection (line 29: `GEMINI_MODEL`)
+1. Create a new file in `Echo/subagents/`
+2. Define your agent using `LlmAgent`:
+   ```python
+   from google.adk.agents import LlmAgent
+   from ..utils import GEMINI_MODEL
+   
+   my_agent = LlmAgent(
+       name="my_agent",
+       model=GEMINI_MODEL,
+       instruction="Your instruction here",
+       output_key="my_output"
+   )
+   ```
+3. Import and add to `root_agent.sub_agents` in `agent.py`
+4. Update routing logic in root agent instruction
 
-## Example Interactions
+### Testing
 
-### English
-```
-User: I'm not feeling well today
-Echo: I'm Echo, a non-clinical companion. I'm not a therapist, but I'm here to listen.
-      Today really isn't feeling okay at all… and that's completely understandable.
-      I'm right here with you. You're not alone in this.
-```
-
-### Hinglish
-```
-User: bas thak gaya hoon yaar
-Echo: बस पूरी तरह थक गए हो ना… इतना सब सहते-सहते।
-      I'm right here yaar, अकेले नहीं हो तुम।
-```
-
-### Hindi
-```
-User: dil mein ek void hai
-Echo: दिल में वो खालीपन… वो सबसे भारी feeling होती है। मैं समझती हूँ।
-      मैं बस यहीं बैठी हूँ तुम्हारे पास, छोड़ूंगी नहीं।
-```
-
-## Technical Stack
-
-- **Framework**: Google ADK (Agent Development Kit)
-- **LLM**: Gemini 2.5 Flash
-- **Database**: SQLite
-- **Language**: Python 3.11+
-- **Key Libraries**: 
-  - `google-adk` - Agent framework
-  - `google-genai` - Gemini API
-  - `pydantic` - Data validation
-
-## Safety & Ethics
-
-⚠️ **Important Disclaimers:**
-- Echo is **NOT a replacement for professional mental health care**
-- Always seek help from qualified professionals for serious concerns
-- Crisis hotlines: India (9152987820), USA (988), Spain (024)
-
-## Development
-
-### Running in Debug Mode
+Test individual agents:
 ```bash
-adk web --session_service_uri "sqlite:///sessions.db" --log_level DEBUG
+adk run Echo.subagents.empathy_agent:empathy_agent
 ```
 
-### Viewing Logs
-Logs show:
-- Agent execution flow
-- Mood scores
-- Selected coping strategies
-- Session state updates
+## ⚠️ Known Issues
 
-## Troubleshooting
+1. **Missing Import**: `agent.py` imports `coping_researcher` which doesn't exist in the codebase. This import should be removed or the file should be created.
 
-### Server won't start
-- Check that `GOOGLE_API_KEY` is set in `.env`
-- Ensure port 8000 is available
-- Verify Python version is 3.11+
+## 🌍 Multilingual Support
 
-### Sessions not persisting
-- Check that `sessions.db` file is created
-- Verify database permissions
-- Run `python check.py` to inspect database
+Echo includes crisis detection in multiple languages:
+- **English**: "want to die", "kill myself", "suicidal"
+- **Hindi**: "मर जाना चाहता हूँ", "आत्महत्या"
+- **Spanish**: "quiero morir", "me quiero suicidar"
+- **Arabic**: "أريد أن أموت", "انتحار"
 
-### Import errors
-```bash
-pip install --upgrade google-adk google-genai
-```
+## 📊 Features in Detail
 
-**Remember**: You're not alone. Echo is here to listen. 💙
+### Evidence-Based Coping Strategies
+- All strategies sourced from HelpGuide.org
+- Personalized based on:
+  - Current mood level
+  - Energy level
+  - Past techniques that didn't work
+  - User's current environment (work/school/home)
+
+### Quality Assurance
+Strategies are validated against:
+1. Evidence-based sources
+2. Personalization to user context
+3. Safety (non-medical, no therapy claims)
+4. Clear, actionable steps
+5. Cultural sensitivity
+6. Appropriate length (50-100 words)
+7. Builds on past techniques
+
+### Crisis Support
+Provides immediate resources for:
+- Suicidal thoughts
+- Self-harm ideation
+- Severe hopelessness
+- Emergency situations
+
+
+
+- **India**: 9152987820 (iCall Psychosocial Helpline)
+- **USA**: 988 (Suicide & Crisis Lifeline)
+- **Spain**: 024 (Línea de Atención a la Conducta Suicida)
+- **International**: https://findahelpline.com
+
+
+## 🙏 Acknowledgments
+
+- Built with [Google ADK](https://github.com/google/adk)
+- Evidence-based content from [HelpGuide.org](https://www.helpguide.org)
+- Gemini 2.5 Flash Lite model
+
+---
+
+**Remember**: Echo is a companion, not a therapist. Always seek professional help for serious mental health concerns.
